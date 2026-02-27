@@ -42,20 +42,22 @@ func (c *LlamaFarmConfig) ResolveEnvironment(name string) (*DeployConfig, error)
 		return nil, fmt.Errorf("environment %q has no server_url configured", name)
 	}
 
+	// Default deploy_models to true when not explicitly set.
+	// First check the typed *bool; fall back to raw config parsing
+	// for cases where the unmarshaler leaves the pointer nil.
+	deployModels := true
+	if env.DeployModels != nil {
+		deployModels = *env.DeployModels
+	} else if rawConfigData != nil {
+		if set, val := envFieldExplicitlySet(rawConfigData, name, "deploy_models"); set {
+			deployModels = val
+		}
+	}
+
 	dc := &DeployConfig{
 		ServerURL:    env.ServerUrl,
 		DeployData:   env.DeployData,
-		DeployModels: true, // schema default
-	}
-
-	// The generated type uses bool (not *bool), so we can't distinguish "absent" from
-	// "explicitly false". Use the raw config data to check if deploy_models was set.
-	if rawConfigData != nil {
-		if explicitly, val := envFieldExplicitlySet(rawConfigData, name, "deploy_models"); explicitly {
-			dc.DeployModels = val
-		}
-	} else if env.DeployModels {
-		dc.DeployModels = true
+		DeployModels: deployModels,
 	}
 
 	return dc, nil

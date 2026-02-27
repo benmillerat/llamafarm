@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/llamafarm/cli/cmd/orchestrator"
@@ -68,6 +69,9 @@ var platformToPyAppOS = map[string]string{
 	"darwin":  "macos",
 	"windows": "windows",
 }
+
+// safeNameRe validates addon names and other user-provided path components.
+var safeNameRe = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // knownInvalidCombos lists platform/arch combos that don't have release artifacts.
 var knownInvalidCombos = map[string]bool{
@@ -268,6 +272,9 @@ func runBundle(cmd *cobra.Command, args []string) error {
 			addon = strings.TrimSpace(addon)
 			if addon == "" {
 				continue
+			}
+			if !safeNameRe.MatchString(addon) {
+				return fmt.Errorf("invalid addon name %q: only alphanumeric, dots, hyphens, and underscores allowed", addon)
 			}
 			fmt.Printf("  Downloading addon wheels: %s...\n", addon)
 			wheelArchiveName := fmt.Sprintf("%s-wheels-%s.tar.gz", addon, addonPlatform)
