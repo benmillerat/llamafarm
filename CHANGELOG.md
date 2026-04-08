@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.0.29](https://github.com/llama-farm/llamafarm/compare/v0.0.28...v0.0.29) (2026-04-08)
+
+
+### Features
+
+* **edge:** model preloading and cache pinning ([#804](https://github.com/llama-farm/llamafarm/issues/804)) ([599f3c1](https://github.com/llama-farm/llamafarm/commit/599f3c10cebe51163d72217fc94c07eb111a5a47))
+* offline-mode deployment story (lf models path + LLAMAFARM_MODEL_DIR) ([#806](https://github.com/llama-farm/llamafarm/issues/806)) ([807c267](https://github.com/llama-farm/llamafarm/commit/807c2671b4596965cdc0364c7291a4cef1ff0bc2))
+* **runtime:** add standalone edge runtime for Pi/Jetson deployment ([#799](https://github.com/llama-farm/llamafarm/issues/799)) ([9920067](https://github.com/llama-farm/llamafarm/commit/992006779078a46f2a1709c254b47ca58eed8c30))
+
+
+### Bug Fixes
+
+* **ci:** remove duplicate sha256 glob that caused pyapp release uploads to fail ([e436315](https://github.com/llama-farm/llamafarm/commit/e436315d87e1822228408478ad1036e31e395f19))
+* **runtime:** force UTF-8 on log file handlers and add edge runtime to CI ([#808](https://github.com/llama-farm/llamafarm/issues/808)) ([9c50a40](https://github.com/llama-farm/llamafarm/commit/9c50a409ab5dcfc206367a35358faba88cb909d5))
+
+
+### Miscellaneous Chores
+
+* release 0.0.29 ([fe6d46c](https://github.com/llama-farm/llamafarm/commit/fe6d46c83fcba739b997eed0adb7e6a459b52bf3))
+
 ## [0.0.28](https://github.com/llama-farm/llamafarm/compare/v0.0.27...v0.0.28) (2026-03-05)
 
 
