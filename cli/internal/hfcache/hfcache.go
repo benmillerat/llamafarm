@@ -36,11 +36,16 @@ type SnapshotFile struct {
 	// RepoID is the HuggingFace repository identifier ("org/name").
 	RepoID string
 	// SnapshotPath is the absolute snapshot path:
-	//   <cache>/models--<org>--<name>/snapshots/<commit>/<filename>
+	//   <cache>/models--<org>--<name>/snapshots/<commit>/<relpath>
 	// This path preserves the original filename and is stable across HF cache
 	// garbage-collection of blob files.
 	SnapshotPath string
-	// Filename is the terminal filename (no directory parts).
+	// RelPath is the path relative to the snapshot directory (e.g.
+	// "gguf/model-Q8_0.gguf" or just "model-Q8_0.gguf" for top-level files).
+	// Used as the dedup key across snapshots.
+	RelPath string
+	// Filename is the terminal filename (no directory parts), kept for
+	// quantization parsing and display.
 	Filename string
 	// Size is the file size in bytes, resolved through any symlink chain.
 	Size int64
@@ -165,31 +170,28 @@ func ListCachedFiles(repoID string) ([]SnapshotFile, error) {
 	out := make(map[string]SnapshotFile)
 	for _, snap := range snapshotDirs {
 		snapDir := filepath.Join(snapshotsDir, snap)
-		files, err := os.ReadDir(snapDir)
-		if err != nil {
-			continue
-		}
-		for _, f := range files {
-			if f.IsDir() {
-				continue
+		_ = filepath.WalkDir(snapDir, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil || d.IsDir() {
+				return nil //nolint:nilerr // best-effort walk
 			}
-			name := f.Name()
-			fullPath := filepath.Join(snapDir, name)
 			// Resolve through any symlink chain to verify non-empty.
-			info, err := os.Stat(fullPath)
-			if err != nil {
-				continue
+			info, err := os.Stat(path)
+			if err != nil || info.IsDir() || info.Size() == 0 {
+				return nil
 			}
-			if info.IsDir() || info.Size() == 0 {
-				continue
+			rel, relErr := filepath.Rel(snapDir, path)
+			if relErr != nil {
+				return nil
 			}
-			out[name] = SnapshotFile{
+			out[rel] = SnapshotFile{
 				RepoID:       repoID,
-				SnapshotPath: fullPath,
-				Filename:     name,
+				SnapshotPath: path,
+				RelPath:      rel,
+				Filename:     d.Name(),
 				Size:         info.Size(),
 			}
-		}
+			return nil
+		})
 	}
 
 	result := make([]SnapshotFile, 0, len(out))
@@ -197,7 +199,7 @@ func ListCachedFiles(repoID string) ([]SnapshotFile, error) {
 		result = append(result, v)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Filename < result[j].Filename
+		return result[i].RelPath < result[j].RelPath
 	})
 	return result, nil
 }
