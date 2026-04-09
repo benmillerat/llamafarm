@@ -6,12 +6,21 @@ name: Build and Push Docker Images
 # - PR artifacts are used by create-manifest and test-compose jobs for validation
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag, or SHA). Defaults to the branch the workflow is triggered from."
+        required: false
+        default: ""
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   NX_NO_CLOUD: true
+  # When a ref input is provided (e.g. "v0.0.30"), use it for checkout and
+  # image tagging. Otherwise fall back to the default branch/ref.
+  BUILD_REF: ${{ inputs.ref || github.ref }}
+  BUILD_REF_NAME: ${{ inputs.ref || github.ref_name }}
 
 jobs:
   # Build AMD64 images on standard Ubuntu runners
@@ -53,6 +62,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Free disk space for large images
         if: matrix.service == 'runtime'
@@ -93,7 +104,7 @@ jobs:
             type=semver,pattern={{version}},suffix=-amd64
             type=semver,pattern={{major}}.{{minor}},suffix=-amd64
             type=semver,pattern={{major}},suffix=-amd64
-            type=sha,prefix=${{ github.ref_name }}-,suffix=-amd64
+            type=sha,prefix=${{ env.BUILD_REF_NAME }}-,suffix=-amd64
             type=raw,value=latest-amd64,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=LlamaFarm ${{ matrix.service }}
@@ -166,6 +177,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -189,7 +202,7 @@ jobs:
             type=semver,pattern={{version}},suffix=-arm64
             type=semver,pattern={{major}}.{{minor}},suffix=-arm64
             type=semver,pattern={{major}},suffix=-arm64
-            type=sha,prefix=${{ github.ref_name }}-,suffix=-arm64
+            type=sha,prefix=${{ env.BUILD_REF_NAME }}-,suffix=-arm64
             type=raw,value=latest-arm64,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=LlamaFarm ${{ matrix.service }}
@@ -237,6 +250,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -285,7 +300,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix=${{ github.ref_name }}-
+            type=sha,prefix=${{ env.BUILD_REF_NAME }}-
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Create and push multi-arch manifest (branches/tags)
@@ -347,6 +362,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -528,6 +545,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Determine image tag
         id: tag
