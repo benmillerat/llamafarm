@@ -267,6 +267,7 @@ class TestCreateCompletionBOS:
         assert "add_special=True" in source
 
 
+
 class TestSamplerChain:
     """Verify the sampler chain matches the requested sampling mode."""
 
