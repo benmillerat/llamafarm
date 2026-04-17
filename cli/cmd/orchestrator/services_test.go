@@ -1,8 +1,102 @@
 package orchestrator
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
+
+func TestGetBinaryEnv(t *testing.T) {
+	no := &NativeOrchestrator{}
+
+	t.Run("inherits core env keys", func(t *testing.T) {
+		os.Setenv("HOME", "/test/home")
+		defer os.Unsetenv("HOME")
+
+		env := no.getBinaryEnv(nil)
+		found := false
+		for _, e := range env {
+			if e == "HOME=/test/home" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("getBinaryEnv() should inherit HOME from environment")
+		}
+	})
+
+	t.Run("expands env vars in non-empty defaults", func(t *testing.T) {
+		os.Setenv("LF_DATA_DIR", "/data")
+		defer os.Unsetenv("LF_DATA_DIR")
+
+		env := no.getBinaryEnv(map[string]string{
+			"LOG_FILE": "${LF_DATA_DIR}/logs/server.log",
+		})
+		found := false
+		for _, e := range env {
+			if strings.HasPrefix(e, "LOG_FILE=") {
+				if e != "LOG_FILE=/data/logs/server.log" {
+					t.Errorf("getBinaryEnv() LOG_FILE = %q, want %q", e, "LOG_FILE=/data/logs/server.log")
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("getBinaryEnv() should include LOG_FILE from envKeysWithDefaults")
+		}
+	})
+
+	t.Run("empty default inherits from environment", func(t *testing.T) {
+		os.Setenv("HF_TOKEN", "secret")
+		defer os.Unsetenv("HF_TOKEN")
+
+		env := no.getBinaryEnv(map[string]string{
+			"HF_TOKEN": "",
+		})
+		found := false
+		for _, e := range env {
+			if e == "HF_TOKEN=secret" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("getBinaryEnv() should inherit HF_TOKEN when default is empty and env is set")
+		}
+	})
+
+	t.Run("empty default with unset env omits key", func(t *testing.T) {
+		os.Unsetenv("HF_TOKEN")
+
+		env := no.getBinaryEnv(map[string]string{
+			"HF_TOKEN": "",
+		})
+		for _, e := range env {
+			if strings.HasPrefix(e, "HF_TOKEN=") {
+				t.Errorf("getBinaryEnv() should omit HF_TOKEN when env is unset, got %q", e)
+			}
+		}
+	})
+}
+
+func TestServiceGraphDefinitions(t *testing.T) {
+	expected := []string{"server", "universal-runtime", "rag"}
+	for _, name := range expected {
+		svc, ok := ServiceGraph[name]
+		if !ok {
+			t.Errorf("ServiceGraph missing %q", name)
+			continue
+		}
+		if svc.HealthComponent == "" {
+			t.Errorf("ServiceGraph[%q].HealthComponent is empty", name)
+		}
+		if svc.Env == nil {
+			t.Errorf("ServiceGraph[%q].Env is nil", name)
+		}
+	}
+}
 
 func TestResolveDependencies(t *testing.T) {
 	sm := &ServiceManager{
