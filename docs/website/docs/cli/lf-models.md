@@ -19,7 +19,8 @@ If you omit `namespace/project`, the CLI resolves them from `llamafarm.yaml`.
 
 ### `lf models list`
 
-List all models configured in your project with their descriptions and providers.
+List all models configured in your project with their descriptions, providers,
+and current runtime state when the backing provider exposes it.
 
 ```bash
 lf models list                    # List models from current project
@@ -31,6 +32,17 @@ lf models list company/project    # List models from specific project
 - Description
 - Provider (ollama, lemonade, openai, etc.)
 - Default status
+- Runtime status (`running`, `loaded`, `idle`, `missing`, `unreachable`, etc.)
+- Memory / GPU allocation when the runtime reports it
+- Uptime since the server first observed the model as loaded
+- Runtime host and provider-specific status notes
+
+**Uptime:** the server tracks a first-seen timestamp for each model the moment
+a provider reports it as loaded or running, and subtracts from `time.monotonic()`
+on every call. It resets when the model unloads or when the LlamaFarm server
+restarts — provider runtimes (Ollama, Lemonade, Universal) don't expose a
+true "loaded-at" timestamp, so this is a server-observed approximation rather
+than a ground-truth value from the runtime process itself.
 
 ### `lf models path`
 
