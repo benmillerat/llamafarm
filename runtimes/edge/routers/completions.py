@@ -9,7 +9,7 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -46,11 +46,29 @@ async def completions(request: CompletionRequest):
     """Raw text completions — no chat template applied."""
     from server import load_language
 
-    model = await load_language(
-        request.model,
-        n_ctx=request.n_ctx,
-        n_gpu_layers=request.n_gpu_layers,
-    )
+    from llamafarm_common.model_format import OfflineModelNotCachedError
+
+    try:
+        model = await load_language(
+            request.model,
+            n_ctx=request.n_ctx,
+            n_gpu_layers=request.n_gpu_layers,
+        )
+    except OfflineModelNotCachedError as e:
+        # Mirror chat-completions: surface a structured 404 instead of a
+        # generic 500 when the requested model is not cached and strict
+        # offline mode is on.
+        logger.warning(f"Model not cached locally (offline mode): {e}")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "model_not_cached",
+                "message": (
+                    f"Model '{request.model}' is not cached locally "
+                    "and offline mode is enabled"
+                ),
+            },
+        ) from e
 
     max_tokens = request.max_tokens if request.max_tokens is not None else 512
     stop = request.stop if isinstance(request.stop, list) else ([request.stop] if request.stop else [])
