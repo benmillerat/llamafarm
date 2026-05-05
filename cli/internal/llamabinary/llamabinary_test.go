@@ -75,6 +75,68 @@ func TestSpecFor_WindowsAmd64Cuda(t *testing.T) {
 	}
 }
 
+func TestSpecFor_WindowsAmd64Cuda12Alias(t *testing.T) {
+	spec, err := SpecFor(Target{OS: "windows", Arch: "amd64", Accelerator: "cuda12"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "cuda-12.4") {
+		t.Errorf("expected cuda12 to map to upstream cuda-12.4 artifact, got %s", spec.URL)
+	}
+}
+
+func TestSpecFor_LinuxAmd64Cuda12UsesLlamaFarmHost(t *testing.T) {
+	spec, err := SpecFor(Target{OS: "linux", Arch: "amd64", Accelerator: "cuda12"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "llama-farm/llamafarm") {
+		t.Errorf("expected llama-farm host, got %s", spec.URL)
+	}
+	if !strings.Contains(spec.URL, "bin-linux-cuda12-x86_64.zip") {
+		t.Errorf("unexpected artifact in URL: %s", spec.URL)
+	}
+	if spec.LibName != "libllama.so" {
+		t.Errorf("expected libllama.so, got %s", spec.LibName)
+	}
+}
+
+func TestSpecFor_LinuxAmd64Cuda13UsesLlamaFarmHost(t *testing.T) {
+	spec, err := SpecFor(Target{OS: "linux", Arch: "amd64", Accelerator: "cuda13"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "bin-linux-cuda13-x86_64.zip") {
+		t.Errorf("unexpected artifact in URL: %s", spec.URL)
+	}
+}
+
+func TestSpecFor_LinuxAmd64BareCudaDefaultsToCuda12(t *testing.T) {
+	// Bare "cuda" must NOT silently fall back to Vulkan now that LlamaFarm
+	// publishes Linux x86_64 CUDA binaries. It defaults to cuda12 because that
+	// covers the broader range of installed drivers.
+	spec, err := SpecFor(Target{OS: "linux", Arch: "amd64", Accelerator: "cuda"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "bin-linux-cuda12-x86_64.zip") {
+		t.Errorf("expected bare cuda to default to cuda12 artifact, got %s", spec.URL)
+	}
+	if strings.Contains(spec.URL, "vulkan") {
+		t.Errorf("bare cuda must not fall back to Vulkan, got %s", spec.URL)
+	}
+}
+
+func TestSpecFor_LinuxAmd64RocmFallsBackToVulkan(t *testing.T) {
+	spec, err := SpecFor(Target{OS: "linux", Arch: "amd64", Accelerator: "rocm"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "vulkan") {
+		t.Errorf("expected rocm to fall back to vulkan artifact, got %s", spec.URL)
+	}
+}
+
 func TestSpecFor_InvalidCombo(t *testing.T) {
 	_, err := SpecFor(Target{OS: "darwin", Arch: "arm64", Accelerator: "cuda"}, "b8816")
 	if err == nil {

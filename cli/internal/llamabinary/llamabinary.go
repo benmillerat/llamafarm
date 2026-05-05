@@ -33,7 +33,7 @@ var Version = "b8816"
 type Target struct {
 	OS          string // "linux", "darwin", "windows"
 	Arch        string // "amd64", "arm64" (canonical Go arch names)
-	Accelerator string // "cpu", "cuda", "metal", "vulkan", "rocm"
+	Accelerator string // "cpu", "cuda", "cuda12", "cuda13", "metal", "vulkan", "rocm"
 }
 
 // String returns a compact stable identifier like "linux/arm64/cpu".
@@ -61,7 +61,7 @@ var ValidOSes = []string{"linux", "darwin", "windows"}
 var ValidArches = []string{"amd64", "arm64"}
 
 // ValidAccelerators lists the supported compute backends.
-var ValidAccelerators = []string{"cpu", "cuda", "metal", "vulkan", "rocm"}
+var ValidAccelerators = []string{"cpu", "cuda", "cuda12", "cuda13", "metal", "vulkan", "rocm"}
 
 // acceptArchAliases maps user-friendly arch names to canonical Go arch names.
 var acceptArchAliases = map[string]string{
@@ -184,9 +184,28 @@ func SpecFor(t Target, version string) (Spec, error) {
 			LibPath: libName,
 			LibName: libName,
 		}, nil
-	case t.OS == "linux" && t.Arch == "amd64" && (t.Accelerator == "cuda" || t.Accelerator == "rocm"):
-		// Upstream no longer ships Linux CUDA or ROCm binaries; fall back to Vulkan which
-		// typically gives similar GPU acceleration on supported hardware.
+	case t.OS == "linux" && t.Arch == "amd64" && (t.Accelerator == "cuda" || t.Accelerator == "cuda12" || t.Accelerator == "cuda13"):
+		// LlamaFarm hosts its own Linux x86_64 CUDA builds since upstream stopped
+		// shipping them after b7694. Bare "cuda" defaults to cuda12 because it covers
+		// a broader range of installed drivers; callers that know their CUDA major
+		// (e.g. via the Python downloader's nvidia-smi probe) should pass cuda13
+		// explicitly when supported.
+		major := "cuda12"
+		if t.Accelerator == "cuda13" {
+			major = "cuda13"
+		}
+		lfVersion := llamafarmReleaseVersion()
+		return Spec{
+			URL: fmt.Sprintf(
+				"https://github.com/llama-farm/llamafarm/releases/download/%s/llama-%s-bin-linux-%s-x86_64.zip",
+				lfVersion, version, major,
+			),
+			LibPath: libName,
+			LibName: libName,
+		}, nil
+	case t.OS == "linux" && t.Arch == "amd64" && t.Accelerator == "rocm":
+		// Upstream does not ship Linux ROCm binaries; fall back to Vulkan which
+		// typically gives similar GPU acceleration on supported AMD hardware.
 		return Spec{
 			URL:     urlBase(fmt.Sprintf("llama-%s-bin-ubuntu-vulkan-x64.tar.gz", version)),
 			LibPath: libName,
@@ -212,7 +231,10 @@ func SpecFor(t Target, version string) (Spec, error) {
 			LibPath: libName,
 			LibName: libName,
 		}, nil
-	case t.OS == "windows" && t.Arch == "amd64" && t.Accelerator == "cuda":
+	case t.OS == "windows" && t.Arch == "amd64" && (t.Accelerator == "cuda" || t.Accelerator == "cuda12"):
+		// Upstream's Windows CUDA artifact is built against CUDA 12.4 — both
+		// "cuda" (legacy) and the explicit "cuda12" key resolve here. There is
+		// no Windows cuda13 artifact upstream as of b8816.
 		return Spec{
 			URL:     urlBase(fmt.Sprintf("llama-%s-bin-win-cuda-12.4-x64.zip", version)),
 			LibPath: libName,
