@@ -112,12 +112,18 @@ BINARY_MANIFEST: dict[tuple[str, str, str], dict] = {
     # for Linux as of b7694; CUDA is split by major version because llama.cpp
     # binaries are linked against a specific CUDA major).
     ("linux", "x86_64", "cuda12"): {
-        "artifact": "https://github.com/llama-farm/llamafarm/releases/download/{llamafarm_version}/llama-{version}-bin-linux-cuda12-x86_64.zip",
+        "artifact": (
+            "https://github.com/llama-farm/llamafarm/releases/download/"
+            "{llamafarm_version}/llama-{version}-bin-linux-cuda12-x86_64.zip"
+        ),
         "lib": "libllama.so",
         "sha256": None,
     },
     ("linux", "x86_64", "cuda13"): {
-        "artifact": "https://github.com/llama-farm/llamafarm/releases/download/{llamafarm_version}/llama-{version}-bin-linux-cuda13-x86_64.zip",
+        "artifact": (
+            "https://github.com/llama-farm/llamafarm/releases/download/"
+            "{llamafarm_version}/llama-{version}-bin-linux-cuda13-x86_64.zip"
+        ),
         "lib": "libllama.so",
         "sha256": None,
     },
