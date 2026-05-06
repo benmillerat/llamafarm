@@ -75,6 +75,23 @@ func TestSpecFor_WindowsAmd64Cuda(t *testing.T) {
 	}
 }
 
+func TestSpecFor_WindowsAmd64Cuda13FallsBackToCuda12Artifact(t *testing.T) {
+	// There is no separate Windows cuda13 artifact upstream; a CUDA 13 driver
+	// can load the cuda-12.4 binary, so cuda13 must resolve there rather than
+	// returning ErrSpecNotAvailable (which would silently demote to CPU at the
+	// Download layer).
+	spec, err := SpecFor(Target{OS: "windows", Arch: "amd64", Accelerator: "cuda13"}, "b8816")
+	if err != nil {
+		t.Fatalf("SpecFor: %v", err)
+	}
+	if !strings.Contains(spec.URL, "cuda-12.4") {
+		t.Errorf("expected windows cuda13 to forward-fall-back to cuda-12.4 artifact, got %s", spec.URL)
+	}
+	if strings.Contains(spec.URL, "win-cpu") {
+		t.Errorf("cuda13 must not degrade to CPU artifact, got %s", spec.URL)
+	}
+}
+
 func TestSpecFor_WindowsAmd64Cuda12Alias(t *testing.T) {
 	spec, err := SpecFor(Target{OS: "windows", Arch: "amd64", Accelerator: "cuda12"}, "b8816")
 	if err != nil {

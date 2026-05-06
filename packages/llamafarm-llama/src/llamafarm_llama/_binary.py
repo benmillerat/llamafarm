@@ -732,14 +732,28 @@ def download_binary(
                 f"No pre-built binary for {platform_key}; building from source instead."
             )
             return _build_from_source(dest_dir, version, platform_key[2])
-        # Try falling back to CPU
-        system, machine, _ = platform_key
-        cpu_key = (system, machine, "cpu")
-        if cpu_key in BINARY_MANIFEST:
-            logger.warning(f"No binary for {platform_key}, falling back to CPU")
-            platform_key = cpu_key
-        else:
-            raise RuntimeError(f"No pre-built binary available for {platform_key}")
+        system, machine, backend = platform_key
+        # CUDA major-version compatibility: a CUDA 13 driver can load a binary
+        # built against CUDA 12 (this is how Windows works today — we ship a
+        # single cuda12 artifact). Fall back to cuda12 before degrading to CPU
+        # so a CUDA-13 host doesn't silently lose GPU acceleration on platforms
+        # that only publish a cuda12 artifact.
+        if backend == "cuda13":
+            cuda12_key = (system, machine, "cuda12")
+            if cuda12_key in BINARY_MANIFEST:
+                logger.info(
+                    f"No cuda13 binary for {system}/{machine}; using cuda12 "
+                    "(forward-compatible with CUDA 13 drivers)"
+                )
+                platform_key = cuda12_key
+        # Try falling back to CPU if we still don't have a match.
+        if platform_key not in BINARY_MANIFEST:
+            cpu_key = (system, machine, "cpu")
+            if cpu_key in BINARY_MANIFEST:
+                logger.warning(f"No binary for {platform_key}, falling back to CPU")
+                platform_key = cpu_key
+            else:
+                raise RuntimeError(f"No pre-built binary available for {platform_key}")
 
     manifest = BINARY_MANIFEST[platform_key]
     artifact_template = manifest["artifact"]

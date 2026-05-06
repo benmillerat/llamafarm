@@ -230,6 +230,35 @@ class TestCudaVersionDetection:
         monkeypatch.setattr(subprocess, "check_output", fake_check_output)
         assert _binary._get_cuda_version() is None
 
+    def test_cuda13_falls_back_to_cuda12_when_no_cuda13_artifact(self, tmp_path, monkeypatch):
+        """Hosts that detect cuda13 but have no cuda13 manifest entry (e.g.
+        Windows, where we ship only a cuda12 artifact) should resolve the
+        cuda12 manifest entry instead of silently degrading to CPU."""
+        from llamafarm_llama import _binary
+
+        monkeypatch.setattr(_binary, "get_platform_key", lambda: ("win32", "amd64", "cuda13"))
+
+        captured: dict[str, str] = {}
+
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001
+            url = req.get_full_url() if hasattr(req, "get_full_url") else str(req)
+            captured["url"] = url
+            raise RuntimeError("stop after URL capture")
+
+        monkeypatch.setattr("llamafarm_llama._binary.urlopen", fake_urlopen)
+
+        with pytest.raises(RuntimeError, match="stop after URL capture|Failed to download"):
+            _binary.download_binary(tmp_path)
+
+        assert "url" in captured, "download_binary did not even attempt a download"
+        # Must hit the cuda12 artifact, NOT a CPU fallback.
+        assert "cuda-12.4" in captured["url"], (
+            f"expected cuda13 to forward-fall-back to cuda12 artifact, got {captured['url']}"
+        )
+        assert "win-cpu" not in captured["url"], (
+            f"cuda13 must not silently degrade to CPU on Windows, got {captured['url']}"
+        )
+
     def test_falls_back_to_driver_version_mapping(self, monkeypatch):
         """When the text dump lacks 'CUDA Version', use driver-version fallback."""
         from llamafarm_llama import _binary

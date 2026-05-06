@@ -231,10 +231,11 @@ func SpecFor(t Target, version string) (Spec, error) {
 			LibPath: libName,
 			LibName: libName,
 		}, nil
-	case t.OS == "windows" && t.Arch == "amd64" && (t.Accelerator == "cuda" || t.Accelerator == "cuda12"):
-		// Upstream's Windows CUDA artifact is built against CUDA 12.4 — both
-		// "cuda" (legacy) and the explicit "cuda12" key resolve here. There is
-		// no Windows cuda13 artifact upstream as of b8816.
+	case t.OS == "windows" && t.Arch == "amd64" && (t.Accelerator == "cuda" || t.Accelerator == "cuda12" || t.Accelerator == "cuda13"):
+		// Upstream's Windows CUDA artifact is built against CUDA 12.4. There is
+		// no separate Windows cuda13 artifact upstream as of b8816, but a
+		// CUDA 13 driver can load a CUDA 12 binary, so cuda13 forward-falls-back
+		// here rather than degrading to CPU.
 		return Spec{
 			URL:     urlBase(fmt.Sprintf("llama-%s-bin-win-cuda-12.4-x64.zip", version)),
 			LibPath: libName,
