@@ -101,10 +101,12 @@ def _get_llamafarm_release_version(expected_asset: Optional[str] = None) -> str:
                     if any(("arm64" in n) or ("cuda" in n) for n in asset_names):
                         logger.info(f"Using latest LlamaFarm release: {tag}")
                         return tag
-            logger.debug(
-                "No recent LlamaFarm release carries asset "
-                f"{expected_asset!r}; using fallback"
-            )
+            if expected_asset is not None:
+                logger.debug(
+                    f"No recent LlamaFarm release carries asset {expected_asset!r}; using fallback"
+                )
+            else:
+                logger.debug("No recent LlamaFarm release with custom assets found; using fallback")
     except Exception as e:
         logger.debug(f"Could not query GitHub for releases: {e}")
 
@@ -382,7 +384,16 @@ def _get_cuda_version() -> Optional[str]:
             text=True,
             timeout=5,
         )
-        driver = float(output.strip().splitlines()[0].split(".")[0])
+        lines = output.strip().splitlines()
+        driver = None
+        for line in lines:
+            try:
+                driver = float(line.strip().split(".")[0])
+                break
+            except ValueError:
+                continue
+        if driver is None:
+            raise ValueError(f"no parseable driver version in nvidia-smi output: {output!r}")
         if driver >= 580:
             return "cuda13"
         if driver >= 525:
