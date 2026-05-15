@@ -6,6 +6,11 @@ name: Build and Push Docker Images
 # - PR artifacts are used by create-manifest and test-compose jobs for validation
 
 on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       ref:
